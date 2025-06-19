@@ -1,0 +1,32 @@
+alertmanager:
+  enabled: true
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector:
+      matchLabels:
+        release: prometheus
+
+grafana:
+  enabled: true
+  adminPassword: "admin"
+  dashboards:
+    default:
+      flask-app:
+        json: |
+          ${file("./grafana-dashboards/flask-dashboard.json")}
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus-server
+
+serviceAccounts:
+  alertmanager:
+    create: true
+  server:
+    create: true
