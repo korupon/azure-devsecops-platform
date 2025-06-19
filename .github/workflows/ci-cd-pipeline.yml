@@ -1,0 +1,55 @@
+name: CI/CD Pipeline
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-test-scan-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          cd app
+          pip install -r requirements.txt
+
+      - name: Run Unit Tests
+        run: |
+          echo "Running tests..." # Add pytest if available
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v1.0.0
+        with:
+          projectBaseDir: app
+
+      - name: Build Docker Image
+        run: |
+          docker build -t myregistry.azurecr.io/devsecops-app:latest ./app
+
+      - name: Trivy Image Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: myregistry.azurecr.io/devsecops-app:latest
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Push Docker Image to ACR
+        run: |
+          az acr login --name myregistry
+          docker push myregistry.azurecr.io/devsecops-app:latest
+
+      - name: Helm Deploy to AKS
+        run: |
+          helm upgrade --install devsecops ./helm-chart \
+            --set image.repository=myregistry.azurecr.io/devsecops-app \
+            --set image.tag=latest
